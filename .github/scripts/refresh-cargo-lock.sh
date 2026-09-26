@@ -12,11 +12,13 @@ cargo generate-lockfile
 # its own Error enum, while unconstrained transitive ranges can also pull 2.12
 # runtime/macros/utils into a 2.11 core. Lock the last coherent upstream set.
 cargo update -p tauri --precise 2.11.4
-cargo update -p tauri-runtime --precise 2.11.3
+# Downgrade dependants before their dependencies so Cargo never has to satisfy
+# a 2.12-only requirement with a 2.11 package during the transition.
 cargo update -p tauri-runtime-wry --precise 2.11.4
+cargo update -p tauri-runtime --precise 2.11.3
 cargo update -p tauri-macros --precise 2.6.3
-cargo update -p tauri-utils --precise 2.9.3
 cargo update -p tauri-codegen --precise 2.6.3
+cargo update -p tauri-utils --precise 2.9.3
 cargo update -p tauri-build --precise 2.6.3
 
 check_locked() {
