@@ -18,6 +18,7 @@ cargo update -p tauri-runtime-wry --precise 2.11.4
 cargo update -p tauri-runtime --precise 2.11.3
 cargo update -p tauri-macros --precise 2.6.3
 cargo update -p tauri-codegen --precise 2.6.3
+cargo update -p tauri-plugin --precise 2.6.3
 cargo update -p tauri-utils --precise 2.9.3
 cargo update -p tauri-build --precise 2.6.3
 
@@ -41,6 +42,7 @@ check_locked tauri-runtime-wry 2.11.4
 check_locked tauri-macros 2.6.3
 check_locked tauri-utils 2.9.3
 check_locked tauri-codegen 2.6.3
+check_locked tauri-plugin 2.6.3
 check_locked tauri-build 2.6.3
 
 cargo metadata --locked --format-version 1 >/dev/null
