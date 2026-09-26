@@ -166,6 +166,24 @@ for (const item of mapping) {
     });
   }
 
+  // Create the canonical Git ref before retargeting the Release. When the
+  // Release API is asked to move to a nonexistent tag, GitHub may try to create
+  // that tag internally and apply workflow-file push restrictions to historical
+  // commits. Creating the ref directly through Git Data only changes the ref.
+  if (!remoteTagSha(newTag)) {
+    ghJson(`repos/${repo}/git/refs`, {
+      method: "POST",
+      fields: [
+        ["-f", "ref", `refs/tags/${newTag}`],
+        ["-f", "sha", item.sourceSha],
+      ],
+    });
+  }
+  const createdTagSha = remoteTagSha(newTag);
+  if (createdTagSha !== item.sourceSha) {
+    throw new Error(`${newTag}: canonical tag points to ${createdTagSha}, expected ${item.sourceSha}`);
+  }
+
   const body = canonicalizeText(release.body || "", item);
   release = ghJson(`repos/${repo}/releases/${release.id}`, {
     method: "PATCH",
@@ -178,22 +196,6 @@ for (const item of mapping) {
       ["-F", "draft", "false"],
     ],
   });
-
-  // Updating a release to a new tag normally creates that tag. If GitHub
-  // leaves the tag absent, create the ref through the REST API rather than
-  // git push, which is blocked for historical commits containing workflows.
-  if (!remoteTagSha(newTag)) {
-    ghJson(`repos/${repo}/git/refs`, {
-      method: "POST",
-      fields: [
-        ["-f", "ref", `refs/tags/${newTag}`],
-        ["-f", "sha", item.sourceSha],
-      ],
-    });
-  }
-  if (remoteTagSha(newTag) !== item.sourceSha) {
-    throw new Error(`${newTag}: canonical tag was not created at ${item.sourceSha}`);
-  }
 
   // Rename binary assets in place so their bytes and GitHub digest remain
   // unchanged. Checksums are re-uploaded because their filename references
