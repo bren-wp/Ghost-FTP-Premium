@@ -73,28 +73,47 @@ function createCanonicalTag(tag, sourceSha, legacyTag) {
     return;
   }
 
-  // Create an annotated Git tag object first. Some GitHub App tokens reject a
-  // ref that points straight at a historical commit containing workflow-file
-  // changes. The annotated tag preserves the exact source commit while keeping
-  // the canonical ref itself pointed at a tag object.
-  const tagObject = ghJson(`repos/${repo}/git/tags`, {
-    method: "POST",
-    fields: [
-      ["-f", "tag", tag],
-      ["-f", "message", `Canonical Ghost FTP release tag for ${legacyTag}`],
-      ["-f", "object", sourceSha],
-      ["-f", "type", "commit"],
-    ],
-  });
-  if (!tagObject?.sha) throw new Error(`${tag}: GitHub did not return a tag object SHA`);
+  let apiError = null;
+  try {
+    // Prefer an annotated tag object. This preserves the exact historical
+    // source commit while avoiding a direct historical-commit ref write when
+    // GitHub App workflow protections are stricter.
+    const tagObject = ghJson(`repos/${repo}/git/tags`, {
+      method: "POST",
+      fields: [
+        ["-f", "tag", tag],
+        ["-f", "message", `Canonical Ghost FTP release tag for ${legacyTag}`],
+        ["-f", "object", sourceSha],
+        ["-f", "type", "commit"],
+      ],
+    });
+    if (!tagObject?.sha) throw new Error(`${tag}: GitHub did not return a tag object SHA`);
 
-  ghJson(`repos/${repo}/git/refs`, {
-    method: "POST",
-    fields: [
-      ["-f", "ref", `refs/tags/${tag}`],
-      ["-f", "sha", tagObject.sha],
-    ],
-  });
+    ghJson(`repos/${repo}/git/refs`, {
+      method: "POST",
+      fields: [
+        ["-f", "ref", `refs/tags/${tag}`],
+        ["-f", "sha", tagObject.sha],
+      ],
+    });
+  } catch (error) {
+    apiError = error;
+  }
+
+  if (resolvedRefCommitSha(tag) !== sourceSha) {
+    // Fallback to authenticated git transport. checkout persists GITHUB_TOKEN
+    // credentials, and a normal tag push is accepted on repositories where
+    // the Git Data ref endpoint rejects historical workflow-bearing commits.
+    run("git", ["config", "user.name", "github-actions[bot]"]);
+    run("git", ["config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"]);
+    run("git", ["tag", "-f", "-a", tag, sourceSha, "-m", `Canonical Ghost FTP release tag for ${legacyTag}`]);
+    const pushed = run("git", ["push", "origin", `refs/tags/${tag}`], { allowFailure: true });
+    if (pushed.status !== 0) {
+      throw new Error(
+        `${tag}: API tag creation failed (${apiError ?? "unknown error"}) and git push failed: ${String(pushed.stderr || pushed.stdout || "")}`,
+      );
+    }
+  }
 
   const resolved = resolvedRefCommitSha(tag);
   if (resolved !== sourceSha) {
