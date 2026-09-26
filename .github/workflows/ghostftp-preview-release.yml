@@ -51,10 +51,10 @@ jobs:
             return 1
           }
 
-          wait_for_gate "Ghost FTP quality" "source audit"
-          wait_for_gate "Ghost FTP protocol E2E" "FTP/FTPS/SFTP E2E"
-          wait_for_gate "Ghost FTP Android" "Android"
-          wait_for_gate "Validate Windows hardening" "Windows hardening"
+          wait_for_gate "ghostftp-quality.yml" "source audit"
+          wait_for_gate "ghostftp-protocol-e2e.yml" "FTP/FTPS/SFTP E2E"
+          wait_for_gate "ghostftp-android.yml" "Android"
+          wait_for_gate "validate-win-hardening.yml" "Windows hardening"
           echo "SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
@@ -85,7 +85,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          RUN_ID="$(gh run list --workflow "Ghost FTP Android" --commit "$SOURCE_SHA" --limit 10 --json databaseId,status,conclusion --jq 'map(select(.status == "completed" and .conclusion == "success")) | .[0].databaseId // ""')"
+          RUN_ID="$(gh run list --workflow "ghostftp-android.yml" --commit "$SOURCE_SHA" --limit 10 --json databaseId,status,conclusion --jq 'map(select(.status == "completed" and .conclusion == "success")) | .[0].databaseId // ""')"
           test -n "$RUN_ID"
           mkdir -p dist/android
           gh run download "$RUN_ID" --name GhostFTP-Android-APK-Preview -D dist/android
