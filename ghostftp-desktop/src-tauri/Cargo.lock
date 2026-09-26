@@ -2449,7 +2449,7 @@ dependencies = [
 
 [[package]]
 name = "ghostftp"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "aes-gcm 0.10.3",
  "anyhow",
@@ -2503,7 +2503,7 @@ dependencies = [
 
 [[package]]
 name = "ghostftp-agent-proto"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -2520,7 +2520,7 @@ dependencies = [
 
 [[package]]
 name = "ghostftp-agentd"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -2539,7 +2539,7 @@ dependencies = [
 
 [[package]]
 name = "ghostftp-cli"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "anyhow",
  "async-trait",
