@@ -139,21 +139,18 @@ fn app_bin_dir(app: &AppHandle) -> Result<PathBuf, String> {
         .join("bin"))
 }
 
-/// First `ghostftp-cli` hit on PATH via `where` (Windows) / `which` (Unix), if any.
+/// First Ghost FTP CLI hit on PATH without spawning `where.exe` / `which`.
+/// Besides being faster and easier to reason about, this prevents the Windows
+/// GUI from flashing a console window merely because Settings → Advanced was opened.
+fn cli_on_path(path: Option<std::ffi::OsString>) -> Option<PathBuf> {
+    let path = path?;
+    std::env::split_paths(&path)
+        .map(|dir| dir.join(cli_exe_name()))
+        .find(|candidate| candidate.is_file())
+}
+
 fn which_ghostftp_cli() -> Option<PathBuf> {
-    let finder = if cfg!(windows) { "where" } else { "which" };
-    let out = std::process::Command::new(finder)
-        .arg("ghostftp-cli")
-        .output()
-        .ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    String::from_utf8_lossy(&out.stdout)
-        .lines()
-        .map(|l| l.trim())
-        .find(|l| !l.is_empty())
-        .map(PathBuf::from)
+    cli_on_path(std::env::var_os("PATH"))
 }
 
 /// Compute the current status without mutating anything.
@@ -639,6 +636,19 @@ pub async fn path_remove(app: AppHandle, state: State<'_, AppState>) -> Result<P
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cli_path_lookup_does_not_require_a_shell_process() {
+        let root = std::env::temp_dir().join(format!("ghostftp-path-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&root).expect("create temp PATH dir");
+        let candidate = root.join(cli_exe_name());
+        std::fs::write(&candidate, b"test").expect("create CLI marker");
+        let path = std::env::join_paths([&root]).expect("join PATH");
+
+        assert_eq!(cli_on_path(Some(path)), Some(candidate));
+
+        let _ = std::fs::remove_dir_all(root);
+    }
 
     #[test]
     fn contains_is_case_and_slash_insensitive() {
