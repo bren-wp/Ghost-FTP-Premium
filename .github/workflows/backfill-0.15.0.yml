@@ -4,6 +4,12 @@ on:
   workflow_run:
     workflows: ["Migrate published releases to canonical SemVer"]
     types: [completed]
+  push:
+    branches:
+      - release/0x-published-migration-and-hardening
+    paths:
+      - '.github/workflows/backfill-0.15.0.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -15,7 +21,7 @@ concurrency:
 
 jobs:
   publish:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/release/0x-published-migration-and-hardening') || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: ubuntu-22.04
     env:
       SOURCE_SHA: bd1358b7b9befed3a6dd2971e8f44e30b84e89c0
