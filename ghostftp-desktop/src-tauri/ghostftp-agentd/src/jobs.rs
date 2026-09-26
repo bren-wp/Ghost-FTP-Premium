@@ -284,17 +284,20 @@ mod tests {
         let cmd = "echo hello-detached";
         store.start("job-1", cmd, small_cap()).unwrap();
 
-        // Poll until it finishes (bounded so a hang fails the test).
-        let mut status = None;
-        for _ in 0..100 {
-            let s = store.poll("job-1").expect("job exists");
-            if !s.running {
-                status = Some(s);
-                break;
+        // Poll until it finishes, but give Windows CI enough time for a cold
+        // PowerShell startup. The timeout still guarantees that a real hang
+        // fails deterministically instead of leaving the test unbounded.
+        let s = tokio::time::timeout(Duration::from_secs(20), async {
+            loop {
+                let status = store.poll("job-1").expect("job exists");
+                if !status.running {
+                    break status;
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
             }
-            tokio::time::sleep(Duration::from_millis(50)).await;
-        }
-        let s = status.expect("job finished");
+        })
+        .await
+        .expect("job finished within 20 seconds");
         assert_eq!(s.exit_code, Some(0));
         assert!(
             s.stdout.contains("hello-detached"),
