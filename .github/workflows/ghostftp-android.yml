@@ -48,25 +48,39 @@ jobs:
         run: bash android/scripts/check-android-contract.sh
       - name: Native Android lint and APK build
         shell: bash
-        run: gradle -p android lintDebug lintRelease assembleDebug assembleRelease
+        run: gradle -p android lintDebug lintRelease lintPreview assembleDebug assembleRelease assemblePreview
       - name: Prepare Android APK artifacts
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p dist/android
-          DEBUG_APK="android/app/build/outputs/apk/debug/app-debug.apk"
-          RELEASE_APK="$(find android/app/build/outputs/apk/release -type f \( -name '*release.apk' -o -name '*release-unsigned.apk' \) | head -n1 || true)"
-          test -s "$DEBUG_APK"
-          test -n "$RELEASE_APK"
+          VERSION="$(node -p 'require("./version.json").version')"
+          PREVIEW_APK="android/app/build/outputs/apk/preview/app-preview.apk"
+          RELEASE_APK="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -n1)"
+
+          test -s "$PREVIEW_APK"
           test -s "$RELEASE_APK"
-          cp "$DEBUG_APK" dist/android/GhostFTP-Android-v2.1.1-RC23-ci.apk
-          cp "$RELEASE_APK" dist/android/GhostFTP-Android-v2.1.1-RC23-release-check.apk
-          sha256sum dist/android/*.apk > dist/android/GhostFTP-Android-v2.1.1-RC23-SHA256SUMS.txt
+          test -x "$APKSIGNER"
+          test -x "$AAPT"
+
+          "$APKSIGNER" verify --verbose --print-certs "$PREVIEW_APK"
+          if "$APKSIGNER" verify "$RELEASE_APK" >/dev/null 2>&1; then
+            echo "Unsigned release-check APK unexpectedly contains a signature." >&2
+            exit 1
+          fi
+
+          PACKAGE_ID="$("$AAPT" dump badging "$PREVIEW_APK" | sed -n "s/package: name='\([^']*\)'.*/\1/p" | head -n1)"
+          test "$PACKAGE_ID" = "com.ghostftp.android.preview"
+
+          cp "$PREVIEW_APK" "dist/android/GhostFTP-Android-v${VERSION}-Installable-Preview.apk"
+          cp "$RELEASE_APK" "dist/android/GhostFTP-Android-v${VERSION}-Release-Unsigned.apk.unsigned"
+          sha256sum dist/android/* > dist/android/GhostFTP-Android-Preview-SHA256SUMS.txt
       - name: Upload Android APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: GhostFTP-Android-APK-RC23
+          name: GhostFTP-Android-APK-Preview
           path: |
-            dist/android/*.apk
-            dist/android/GhostFTP-Android-v2.1.1-RC23-SHA256SUMS.txt
+            dist/android/*
           if-no-files-found: error

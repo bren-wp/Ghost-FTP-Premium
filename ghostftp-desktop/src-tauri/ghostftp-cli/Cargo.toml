@@ -7,7 +7,7 @@
 # import name is preserved via `package = "ghostftp"` so the source needs no edits.
 [package]
 name = "ghostftp-cli"
-version = "2.1.1-rc.23"
+version = "0.15.0"
 edition = "2021"
 description = "Ghost FTP CLI — SFTP / FTP / S3 / R2 / B2 / Azure Blob from the terminal."
 authors = ["Ghost FTP"]
@@ -16,9 +16,10 @@ license = "MIT"
 [[bin]]
 name = "ghostftp-cli"
 path = "src/main.rs"
+required-features = ["runtime"]
 
 [dependencies]
-ghostftp_lib = { path = "..", package = "ghostftp" }
+ghostftp_lib = { path = "..", package = "ghostftp", optional = true }
 
 # Async runtime + traits shared with the library layers.
 tokio = { version = "1", features = ["full"] }
@@ -51,3 +52,8 @@ base64 = "0.22"
 # HttpSession (which is built on reqwest); default features match ghostftp_lib so the
 # TLS backend unifies rather than pulling a second stack.
 reqwest = { version = "0.12", default-features = false }
+
+
+[features]
+default = ["runtime"]
+runtime = ["dep:ghostftp_lib"]

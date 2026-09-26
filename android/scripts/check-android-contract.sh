@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ANDROID_DIR="$ROOT/android"
 APP_DIR="$ANDROID_DIR/app/src/main"
+VERSION="$(node -p 'require("./version.json").version')"
+BUILD="$(node -p 'require("./version.json").build')"
 
 require_text() {
   local label="$1"
@@ -31,10 +33,10 @@ RELEASE_INFO="$ANDROID_DIR/app/src/main/java/com/ghostftp/android/ReleaseInfo.kt
 
 require_text "product name" "$RELEASE_INFO" 'PRODUCT_NAME = "Ghost FTP"'
 require_text "brand" "$RELEASE_INFO" 'BRAND = "Brendigo"'
-require_text "version" "$RELEASE_INFO" 'VERSION = "2.1.1-rc.23"'
-require_text "display version" "$RELEASE_INFO" 'VERSION_DISPLAY = "2.1.1 RC23"'
-require_text "badge" "$RELEASE_INFO" 'VERSION_BADGE = "RC23"'
-require_text "build" "$RELEASE_INFO" 'BUILD = "2026.09.25.23"'
+require_text "version" "$RELEASE_INFO" "VERSION = \"$VERSION\""
+require_text "display version" "$RELEASE_INFO" "VERSION_DISPLAY = \"$VERSION\""
+require_text "badge" "$RELEASE_INFO" "VERSION_BADGE = \"$VERSION\""
+require_text "build" "$RELEASE_INFO" "BUILD = \"$BUILD\""
 require_text "app label" "$ANDROID_DIR/app/src/main/res/values/strings.xml" '<string name="app_name">Ghost FTP</string>'
 
 require_text "ftp protocol" "$CONNECTION_MODEL" 'FTP("FTP", 21)'
@@ -109,11 +111,15 @@ require_text "embedded credential rejection" "$CONNECTION_MODEL" "'@' !in value"
 require_text "host scheme validation" "$CONNECTION_MODEL" 'scheme in setOf("ftp", "ftps", "sftp")'
 require_text "separate host and port inputs" "$CONNECTION_MODEL" 'Enter the port in the Port field.'
 require_text "release signing configuration" "$ANDROID_DIR/app/build.gradle.kts" 'signingConfigs'
-require_text "release workflow release build" "$ROOT/.github/workflows/ghostftp-android-release.yml" 'assembleRelease'
-require_text "keyless release APK selection" "$ROOT/.github/workflows/ghostftp-android-release.yml" 'app-release-unsigned.apk'
+require_text "installable preview build type" "$ANDROID_DIR/app/build.gradle.kts" 'create("preview")'
+require_text "installable preview package isolation" "$ANDROID_DIR/app/build.gradle.kts" 'applicationIdSuffix = ".preview"'
+require_text "installable preview signing" "$ANDROID_DIR/app/build.gradle.kts" 'signingConfig = signingConfigs.getByName("debug")'
+require_text "preview remains non-debuggable" "$ANDROID_DIR/app/build.gradle.kts" 'isDebuggable = false'
+require_text "release workflow builds preview" "$ROOT/.github/workflows/ghostftp-android-release.yml" 'assemblePreview'
+require_text "release workflow retains unsigned release-check" "$ROOT/.github/workflows/ghostftp-android-release.yml" 'app-release-unsigned.apk'
+require_text "release workflow verifies installable signature" "$ROOT/.github/workflows/ghostftp-android-release.yml" 'apksigner'
+require_text "unsigned APK is clearly non-installable" "$ROOT/.github/workflows/ghostftp-android-release.yml" 'Release-Unsigned.apk.unsigned'
 require_absent "release signing secret dependency" "$ROOT/.github/workflows/ghostftp-android-release.yml" 'GHOSTFTP_ANDROID_KEYSTORE_B64'
-require_text "mandatory release APK gate" "$ROOT/.github/workflows/ghostftp-android-release.yml" 'Android release is incomplete: release APK was not produced.'
-require_text "release APK upload" "$ROOT/.github/workflows/ghostftp-android-release.yml" 'dist/android/*.apk'
 require_text "release APK post-upload verification" "$ROOT/.github/workflows/ghostftp-android-release.yml" 'Verify mandatory Android release assets'
 
 blocked_patterns=(
@@ -145,4 +151,4 @@ for pattern in "${blocked_patterns[@]}"; do
   require_absent "product copy" "$APP_DIR" "$pattern"
 done
 
-echo "Ghost FTP Android RC23 production contract OK"
+echo "Ghost FTP Android $VERSION production contract OK"

@@ -266,11 +266,13 @@ fn spawn_editor(path: &std::path::Path, editor: Option<&str>) -> Result<()> {
             .with_context(|| format!("spawn configured editor for {}", path.display()))?;
         return Ok(());
     }
-    // `cmd /c start "" <path>` opens the file with its associated app.
-    // The empty `""` is the window title — required because `start` interprets
-    // a single quoted arg as the title, not the target.
-    std::process::Command::new("cmd")
-        .args(["/c", "start", ""])
+    // Use Windows file association directly rather than `cmd /c start`.
+    // Apart from avoiding shell parsing of hostile filenames, this also avoids
+    // the transient console window a console-subsystem cmd.exe can create.
+    let mut command = std::process::Command::new("rundll32.exe");
+    crate::windows_process::hide_console(&mut command);
+    command
+        .arg("url.dll,FileProtocolHandler")
         .arg(path)
         .spawn()
         .with_context(|| format!("spawn editor for {}", path.display()))?;

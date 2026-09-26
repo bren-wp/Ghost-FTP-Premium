@@ -103,3 +103,21 @@ Before treating the Android app as release-ready, confirm:
 - Explicit FTPS protected data channel remains enforced.
 - SFTP strict host-key checking remains active.
 - Password is cleared on disconnect.
+
+
+## Installable CI preview
+
+For direct device installation, use the artifact named
+`GhostFTP-Android-v<version>-Installable-Preview.apk`. It is built from the
+release-optimized configuration, is non-debuggable, is signed with Gradle's
+ephemeral debug signing identity, and uses the isolated application id
+`com.ghostftp.android.preview`.
+
+The `*-Release-Unsigned.apk.unsigned` file is intentionally unsigned and is
+kept only to verify the keyless production output. Android will not install
+that file, and Ghost FTP must never present it as the primary installable APK.
+
+Because the preview signing key is intentionally ephemeral, replacing an older
+preview from another CI runner can require uninstalling that prior preview
+first. A persistent production upgrade identity requires a persistent signing
+key and is not silently simulated by this keyless workflow.

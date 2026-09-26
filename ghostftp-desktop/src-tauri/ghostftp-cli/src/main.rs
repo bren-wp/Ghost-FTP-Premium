@@ -15,6 +15,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use clap::{Parser, Subcommand};
 use futures::StreamExt;
+use ghostftp_cli::{check_mangled_remote_path, is_windows_drive_path, parse_semver};
 use ghostftp_lib::profiles::{ConnectionProfile, ProfileStore};
 use ghostftp_lib::remotefs::{DirEntry, FileKind, RemoteFs};
 use ghostftp_lib::session::{
@@ -1840,19 +1841,6 @@ fn cli_version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 
-/// Parse a `MAJOR.MINOR.PATCH` version into a comparable tuple, ignoring any
-/// pre-release/build metadata (`-rc1`, `+meta`). Returns None if it doesn't look
-/// like a semver, so an unparseable value simply suppresses the staleness check
-/// rather than firing a bogus warning.
-fn parse_semver(s: &str) -> Option<(u64, u64, u64)> {
-    let core = s.trim().split(['-', '+']).next().unwrap_or(s);
-    let mut it = core.split('.');
-    let major = it.next()?.parse().ok()?;
-    let minor = it.next().unwrap_or("0").parse().ok()?;
-    let patch = it.next().unwrap_or("0").parse().ok()?;
-    Some((major, minor, patch))
-}
-
 /// Print a one-line stderr warning when this CLI is OLDER than the running Ghost FTP
 /// app (Plan 10 Phase 0a). The app and `ghostftp-cli` ship as separate downloads, so
 /// the CLI silently lags after an app update — this turns a cryptic
@@ -1977,12 +1965,6 @@ fn resolve_server(ep: &Endpoint, name: &str) -> Result<String> {
     }
 }
 
-/// True when `p` starts with a Windows drive prefix (`C:\` or `C:/`).
-fn is_windows_drive_path(p: &str) -> bool {
-    let b = p.as_bytes();
-    b.len() >= 3 && b[0].is_ascii_alphabetic() && b[1] == b':' && (b[2] == b'/' || b[2] == b'\\')
-}
-
 /// Best-effort: is the connected server a Windows machine? Reads `/info`'s
 /// `remote.os` (cached at connect for Ghost FTP Agents; `uname -s` for SSH). Any
 /// failure or unknown OS → false, so the mangling guard errs toward firing.
@@ -2008,38 +1990,6 @@ fn guard_mangled_remote_path(ep: &Endpoint, session_id: &str, remote_path: &str)
     // Only pay for the OS lookup when the path actually looks mangled.
     let is_windows_target = is_windows_drive_path(remote_path) && server_is_windows(ep, session_id);
     check_mangled_remote_path(remote_path, is_windows_target)
-}
-
-/// True when `p` is a drive letter whose separator went missing — `C:UsersUser`.
-/// That is what an unquoted `C:\Users\User` becomes in bash/zsh, where each
-/// backslash escapes the character after it. Windows reads the result as a
-/// *drive-relative* path, so it resolves against the daemon's working directory
-/// instead of failing — the upload lands somewhere real but wrong, silently.
-fn is_collapsed_windows_path(p: &str) -> bool {
-    let b = p.as_bytes();
-    b.len() >= 3 && b[0].is_ascii_alphabetic() && b[1] == b':' && b[2] != b'/' && b[2] != b'\\'
-}
-
-/// Pure decision behind [`guard_mangled_remote_path`], split out so the
-/// reject/allow rule and its message are unit-testable without a live bridge.
-fn check_mangled_remote_path(remote_path: &str, is_windows_target: bool) -> Result<()> {
-    if is_collapsed_windows_path(remote_path) {
-        bail!(
-            "`{remote_path}` is missing its path separators — your shell ate the backslashes \
-             (in bash, `C:\\Users\\User` collapses to `C:UsersUser`). Windows would resolve that \
-             against the server's current directory and put the file somewhere you didn't mean. \
-             Use forward slashes (`C:/Users/User`) or single-quote the path ('C:\\Users\\User')."
-        );
-    }
-    if !is_windows_drive_path(remote_path) || is_windows_target {
-        return Ok(());
-    }
-    bail!(
-        "that remote path looks like Git Bash rewrote it (MSYS path conversion turned a \
-         POSIX path such as /var/www into `{remote_path}`). Re-run with `MSYS_NO_PATHCONV=1`, \
-         prefix the path with `//` (e.g. `//var/www`), or drop text straight in with \
-         `ghostftp-cli agent write`."
-    )
 }
 
 /// Read a script's bytes from a local file or stdin, returning the bytes plus a
@@ -3436,80 +3386,5 @@ fn fmt_bytes(n: u64) -> String {
         format!("{:.1} MB", n as f64 / (1024.0 * 1024.0))
     } else {
         format!("{:.2} GB", n as f64 / (1024.0 * 1024.0 * 1024.0))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{check_mangled_remote_path, is_windows_drive_path, parse_semver};
-
-    #[test]
-    fn mangled_path_rejected_only_on_non_windows_target() {
-        // Drive-prefixed path against a POSIX server → rejected with the hint.
-        let err = check_mangled_remote_path("C:/Program Files/Git/var/www", false)
-            .expect_err("should reject a mangled path on a POSIX target");
-        let msg = format!("{err}");
-        assert!(msg.contains("MSYS_NO_PATHCONV=1"));
-        assert!(msg.contains("agent write"));
-        // Same path against a genuine Windows machine → allowed (real drive path).
-        assert!(check_mangled_remote_path("C:/Users/me/app", true).is_ok());
-        // A normal POSIX remote path is always fine, target OS regardless.
-        assert!(check_mangled_remote_path("/var/www/html", false).is_ok());
-        assert!(check_mangled_remote_path("//var/www", false).is_ok());
-    }
-
-    #[test]
-    fn collapsed_windows_path_is_rejected_on_any_target() {
-        // `C:\Users\User` unquoted in bash arrives like this; Windows would
-        // resolve it drive-relative and drop the file in the wrong directory.
-        for target_is_windows in [true, false] {
-            let err = check_mangled_remote_path("C:UsersUser", target_is_windows)
-                .expect_err("collapsed drive path should be rejected");
-            assert!(format!("{err}").contains("missing its path separators"));
-        }
-        // Properly separated drive paths are still fine on a Windows target.
-        assert!(check_mangled_remote_path(r"C:\Users\User", true).is_ok());
-        assert!(check_mangled_remote_path("C:/Users/User", true).is_ok());
-        // A bare relative path has no drive letter to collapse.
-        assert!(check_mangled_remote_path("public_html/wp-content", false).is_ok());
-    }
-
-    #[test]
-    fn detects_windows_drive_paths() {
-        // MSYS-mangled remote paths (Plan 10 Phase 3) — these trip the guard.
-        assert!(is_windows_drive_path("C:/Program Files/Git/var/www"));
-        assert!(is_windows_drive_path(r"C:\Users\me"));
-        assert!(is_windows_drive_path("D:/data"));
-        // Real remote POSIX paths — never flagged.
-        assert!(!is_windows_drive_path("/var/www/html"));
-        assert!(!is_windows_drive_path("//var/www")); // the leading-// escape
-        assert!(!is_windows_drive_path("./rel"));
-        assert!(!is_windows_drive_path("home/user"));
-        // A bare drive letter with no separator isn't a path prefix.
-        assert!(!is_windows_drive_path("C:"));
-    }
-
-    #[test]
-    fn semver_parses_and_orders() {
-        assert_eq!(parse_semver("1.3.19"), Some((1, 3, 19)));
-        assert_eq!(parse_semver("1.4.0"), Some((1, 4, 0)));
-        // pre-release / build metadata is ignored down to the core triple.
-        assert_eq!(parse_semver("2.0.0-rc1"), Some((2, 0, 0)));
-        assert_eq!(parse_semver("2.0.0+build.7"), Some((2, 0, 0)));
-        // short forms default missing components to 0.
-        assert_eq!(parse_semver("3"), Some((3, 0, 0)));
-        assert_eq!(parse_semver("3.2"), Some((3, 2, 0)));
-        // garbage suppresses the check rather than firing a bogus warning.
-        assert_eq!(parse_semver("nightly"), None);
-    }
-
-    #[test]
-    fn stale_when_cli_older_than_app() {
-        // The staleness warning fires iff cli < app (Plan 10 Phase 0a).
-        assert!(parse_semver("1.3.10") < parse_semver("1.3.19"));
-        assert!(parse_semver("1.2.99") < parse_semver("1.3.0"));
-        // Same or newer is NOT stale.
-        assert!(!(parse_semver("1.3.19") < parse_semver("1.3.19")));
-        assert!(!(parse_semver("1.4.0") < parse_semver("1.3.19")));
     }
 }

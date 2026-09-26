@@ -20,8 +20,8 @@ android {
         applicationId = "com.ghostftp.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 211023
-        versionName = "2.1.1-rc.23"
+        versionCode = 211024
+        versionName = "0.15.0"
     }
 
     signingConfigs {
@@ -46,6 +46,15 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+
+        create("preview") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-preview"
+            signingConfig = signingConfigs.getByName("debug")
+            isDebuggable = false
+            matchingFallbacks += listOf("release")
         }
     }
 

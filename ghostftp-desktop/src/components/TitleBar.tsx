@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   Download,
@@ -91,7 +92,23 @@ export function TitleBar() {
   });
   const [activePane, setActivePane] = useState<"local" | "remote">("local");
   const [moreOpen, setMoreOpen] = useState(false);
+  const [morePosition, setMorePosition] = useState({ top: 0, left: 0 });
   const moreRef = useRef<HTMLDivElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  const positionMoreMenu = () => {
+    const anchor = moreRef.current?.getBoundingClientRect();
+    if (!anchor) return;
+    const menuWidth = 174;
+    const gutter = 8;
+    setMorePosition({
+      top: anchor.bottom + 7,
+      left: Math.min(
+        Math.max(gutter, anchor.right - menuWidth),
+        Math.max(gutter, window.innerWidth - menuWidth - gutter),
+      ),
+    });
+  };
   const singlePane = browserLayout === "single";
   const effectivePane: "local" | "remote" = singlePane
     ? browseLocal
@@ -114,16 +131,25 @@ export function TitleBar() {
   useEffect(() => {
     if (!moreOpen) return;
     const onPointerDown = (event: PointerEvent) => {
-      if (!moreRef.current?.contains(event.target as Node)) setMoreOpen(false);
+      const target = event.target as Node;
+      if (!moreRef.current?.contains(target) && !moreMenuRef.current?.contains(target)) {
+        setMoreOpen(false);
+      }
     };
+    const onLayout = () => positionMoreMenu();
+    positionMoreMenu();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setMoreOpen(false);
     };
     window.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", onLayout);
+    window.addEventListener("scroll", onLayout, true);
     return () => {
       window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", onLayout);
+      window.removeEventListener("scroll", onLayout, true);
     };
   }, [moreOpen]);
 
@@ -211,13 +237,22 @@ export function TitleBar() {
               title="More file actions"
               aria-haspopup="menu"
               aria-expanded={moreOpen}
-              onClick={() => setMoreOpen((open) => !open)}
+              onClick={() => {
+                if (!moreOpen) positionMoreMenu();
+                setMoreOpen((open) => !open);
+              }}
             >
               <MoreHorizontal size={17}/>
               <span>More</span>
             </button>
-            {moreOpen && (
-              <div className="ghost-toolbar-more-menu" role="menu" aria-label="More file actions">
+            {moreOpen && createPortal(
+              <div
+                ref={moreMenuRef}
+                className="ghost-toolbar-more-menu"
+                role="menu"
+                aria-label="More file actions"
+                style={{ position: "fixed", top: morePosition.top, left: morePosition.left, right: "auto", zIndex: 200 }}
+              >
                 <MoreAction
                   icon={<Pencil size={15}/>}
                   label="Rename"
@@ -247,7 +282,8 @@ export function TitleBar() {
                     fileAction("delete", effectivePane);
                   }}
                 />
-              </div>
+              </div>,
+              document.body,
             )}
           </div>
           <div className="ghost-toolbar-spacer"/>

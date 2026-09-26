@@ -1,4 +1,4 @@
-name: Validate Windows RC23 hardening
+name: Validate Windows hardening
 
 on:
   push:
@@ -43,12 +43,25 @@ jobs:
       - name: Rust formatting
         working-directory: ghostftp-desktop/src-tauri
         run: cargo fmt --all -- --check
-      - name: Resolve Rust dependency graph
+      - name: Verify committed Rust dependency graph
         working-directory: ghostftp-desktop/src-tauri
-        run: cargo generate-lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s Cargo.lock
+          cargo metadata --locked --format-version 1 >/dev/null
       - name: Rust tests
         working-directory: ghostftp-desktop/src-tauri
-        run: cargo test --workspace --locked
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Test every native/library workspace member without forcing the CLI
+          # test harness to link the GUI/WebView2 runtime into a console binary.
+          cargo test --workspace --exclude ghostftp-cli --locked
+          # Execute all pure CLI safety/version tests in the lightweight lib target.
+          cargo test -p ghostftp-cli --no-default-features --lib --locked
+          # Still compile-check the complete CLI runtime and ghostftp_lib integration.
+          cargo check -p ghostftp-cli --locked
       - name: Windows NSIS production bundle
         uses: tauri-apps/tauri-action@v0
         env:

@@ -35,6 +35,7 @@ pub mod sync;
 mod terminal;
 mod transfer;
 mod virtualfs;
+mod windows_process;
 
 pub struct AppState {
     pub sessions: Arc<session::SessionManager>,
@@ -125,10 +126,14 @@ fn open_external_url(url: String) -> Result<(), String> {
     }
 
     #[cfg(windows)]
-    let result = std::process::Command::new("rundll32.exe")
-        .arg("url.dll,FileProtocolHandler")
-        .arg(parsed.as_str())
-        .spawn();
+    let result = {
+        let mut command = std::process::Command::new("rundll32.exe");
+        crate::windows_process::hide_console(&mut command);
+        command
+            .arg("url.dll,FileProtocolHandler")
+            .arg(parsed.as_str())
+            .spawn()
+    };
 
     #[cfg(target_os = "linux")]
     let result = std::process::Command::new("xdg-open")

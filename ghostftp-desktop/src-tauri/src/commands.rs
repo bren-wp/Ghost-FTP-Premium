@@ -2344,7 +2344,9 @@ pub async fn bridge_register_mcp(url: String, token: String) -> Result<String, S
 
     let mut last_err = String::new();
     for bin in candidates {
-        let output = std::process::Command::new(bin)
+        let mut command = std::process::Command::new(bin);
+        crate::windows_process::hide_console(&mut command);
+        let output = command
             .args(args)
             .output()
             .map_err(|e| format!("couldn't run {bin}: {e}"))?;

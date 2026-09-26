@@ -71,6 +71,28 @@ requireIncludes(
 );
 
 requireIncludes(
+  "src/components/TitleBar.tsx",
+  [
+    'import { createPortal } from "react-dom"',
+    "const moreMenuRef = useRef<HTMLDivElement>(null)",
+    "createPortal(",
+    "document.body",
+    'style={{ position: "fixed"',
+  ],
+  "More actions overflow-safe portal contract"
+);
+
+requireIncludes(
+  "src-tauri/src/path_integration.rs",
+  [
+    "std::env::split_paths(&path)",
+    "fn cli_on_path(",
+    "cli_path_lookup_does_not_require_a_shell_process",
+  ],
+  "shell-free PATH status contract"
+);
+
+requireIncludes(
   "src/components/TransferCenterDialog.tsx",
   [
     "event.stopPropagation(); onPauseResume();",

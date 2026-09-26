@@ -54,7 +54,12 @@ fn spawn_uninstall_helper(script: String) -> std::io::Result<()> {
         ));
     }
 
-    std::process::Command::new(powershell)
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+    let mut command = std::process::Command::new(powershell);
+    command
+        .creation_flags(CREATE_NO_WINDOW)
         .args([
             "-NoProfile",
             "-NonInteractive",
