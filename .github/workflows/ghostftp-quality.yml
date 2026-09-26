@@ -57,7 +57,7 @@ jobs:
           ! grep -Rni 'Ghost-FTP-Premium' \
             README.md ghostftp-desktop/README.md docs/build docs/product docs/release
           grep -Fq 'https://github.com/bren-wp/Ghost-FTP/releases' README.md
-          grep -Fq -- '--prerelease' .github/scripts/publish-rc23.sh
+          grep -Fq 'sha256sum -c' .github/scripts/publish-release.sh
 
       - name: Native window architecture guard
         shell: bash
@@ -172,10 +172,10 @@ jobs:
             website/index.html \
             website/{bs,de,es,fr,hr,it,mk,nl,pl,pt,sl,sr}/index.html; do
             grep -Fq 'ghostftp-app.png' "$page"
-            VERSION="$(node -p "require('./version.json').version")"
+            VERSION="$(node -p 'require("./version.json").version')"
             grep -Fq "Ghost FTP $VERSION" "$page"
           done
-          bash -n .github/scripts/publish-rc23.sh
+          bash -n .github/scripts/publish-release.sh
 
       - name: Update-tool syntax
         shell: bash
