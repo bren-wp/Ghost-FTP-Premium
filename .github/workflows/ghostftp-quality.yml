@@ -41,7 +41,7 @@ jobs:
             if git cat-file -e FETCH_HEAD:version.json 2>/dev/null; then
               BASE_VERSION="$(git show FETCH_HEAD:version.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).version))')"
             else
-              BASE_VERSION="0.17.0"
+              BASE_VERSION="0.14.0"
             fi
             node .github/scripts/sync-version.mjs --check-next "$BASE_VERSION"
           fi
