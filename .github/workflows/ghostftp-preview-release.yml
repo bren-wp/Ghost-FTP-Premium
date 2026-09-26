@@ -1,4 +1,4 @@
-name: Ghost FTP preview release
+name: Ghost FTP release
 
 on:
   workflow_run:
@@ -10,7 +10,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: ghostftp-preview-release
+  group: ghostftp-release
   cancel-in-progress: false
 
 jobs:
@@ -79,7 +79,7 @@ jobs:
           gh run download "${{ github.event.workflow_run.id }}" -D dist/native
           find dist/native -type f -print
 
-      - name: Download Android release-check APK
+      - name: Download verified installable Android APK
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -101,7 +101,7 @@ jobs:
           APPIMAGE="$(find dist/native -type f -iname '*.AppImage' | head -n1 || true)"
           DEB="$(find dist/native -type f -iname '*.deb' | head -n1 || true)"
           RPM="$(find dist/native -type f -iname '*.rpm' | head -n1 || true)"
-          ANDROID_APK="$(find dist/android -type f -iname '*release-check.apk' | head -n1 || true)"
+          ANDROID_APK="$(find dist/android -type f -iname '*Installable-Preview.apk' | head -n1 || true)"
 
           test -n "$WIN_EXE"; test -n "$WIN_SETUP"; test -n "$LINUX_BIN"
           test -n "$APPIMAGE"; test -n "$DEB"; test -n "$RPM"; test -n "$ANDROID_APK"
@@ -125,7 +125,7 @@ jobs:
           set -euo pipefail
           (cd dist && find . -maxdepth 1 -type f ! -name "GhostFTP-v$VERSION-SHA256SUMS.txt" -printf '%f\0' | sort -z | xargs -0 sha256sum) > "dist/GhostFTP-v$VERSION-SHA256SUMS.txt"
 
-      - name: Publish verified prerelease
+      - name: Publish verified release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash

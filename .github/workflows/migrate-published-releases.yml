@@ -1,0 +1,46 @@
+name: Migrate published releases to 0.x
+
+on:
+  push:
+    branches:
+      - release/0x-published-migration-and-hardening
+    paths:
+      - '.github/scripts/migrate-published-releases.mjs'
+      - '.github/workflows/migrate-published-releases.yml'
+      - 'docs/releases/version-map.json'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ghostftp-published-release-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate migration plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/migrate-published-releases.mjs
+
+      - name: Apply canonical release migration
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/migrate-published-releases.mjs --apply
+
+      - name: Verify published releases and tags
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git fetch --tags --force --prune
+          node .github/scripts/migrate-published-releases.mjs --verify
