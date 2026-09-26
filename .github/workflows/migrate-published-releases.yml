@@ -10,7 +10,7 @@ on:
       - 'docs/releases/version-map.json'
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ghostftp-published-release-migration
