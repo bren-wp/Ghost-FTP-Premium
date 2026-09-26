@@ -36,6 +36,7 @@ jobs:
         run: |
           set -euo pipefail
           npm install --package-lock-only --ignore-scripts
+          npm audit fix --package-lock-only --ignore-scripts
           npm audit --audit-level=high
 
       - name: Verify clean install and production build
