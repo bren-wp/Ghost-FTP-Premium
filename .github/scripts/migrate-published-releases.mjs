@@ -50,6 +50,58 @@ function sourceTagSha(tag) {
   return result.status === 0 ? String(result.stdout).trim() : null;
 }
 
+function refObject(tag) {
+  return ghJson(`repos/${repo}/git/ref/tags/${tag}`, { allow404: true })?.object ?? null;
+}
+
+function resolvedRefCommitSha(tag) {
+  let object = refObject(tag);
+  for (let depth = 0; object && depth < 4; depth += 1) {
+    if (object.type === "commit") return object.sha;
+    if (object.type !== "tag") return null;
+    object = ghJson(`repos/${repo}/git/tags/${object.sha}`)?.object ?? null;
+  }
+  return null;
+}
+
+function createCanonicalTag(tag, sourceSha, legacyTag) {
+  const existing = resolvedRefCommitSha(tag);
+  if (existing) {
+    if (existing !== sourceSha) {
+      throw new Error(`${tag} resolves to ${existing}, expected ${sourceSha}`);
+    }
+    return;
+  }
+
+  // Create an annotated Git tag object first. Some GitHub App tokens reject a
+  // ref that points straight at a historical commit containing workflow-file
+  // changes. The annotated tag preserves the exact source commit while keeping
+  // the canonical ref itself pointed at a tag object.
+  const tagObject = ghJson(`repos/${repo}/git/tags`, {
+    method: "POST",
+    fields: [
+      ["-f", "tag", tag],
+      ["-f", "message", `Canonical Ghost FTP release tag for ${legacyTag}`],
+      ["-f", "object", sourceSha],
+      ["-f", "type", "commit"],
+    ],
+  });
+  if (!tagObject?.sha) throw new Error(`${tag}: GitHub did not return a tag object SHA`);
+
+  ghJson(`repos/${repo}/git/refs`, {
+    method: "POST",
+    fields: [
+      ["-f", "ref", `refs/tags/${tag}`],
+      ["-f", "sha", tagObject.sha],
+    ],
+  });
+
+  const resolved = resolvedRefCommitSha(tag);
+  if (resolved !== sourceSha) {
+    throw new Error(`${tag}: resolves to ${resolved}, expected ${sourceSha}`);
+  }
+}
+
 function canonicalizeText(text, item) {
   const rc = item.legacy.match(/-rc\.(\d+)$/i)?.[1];
   if (!rc) throw new Error(`invalid legacy version ${item.legacy}`);
@@ -128,9 +180,9 @@ for (const item of mapping) {
   if (!release) throw new Error(`release not found for ${oldTag} / ${newTag}`);
 
   const oldRemoteSha = remoteTagSha(oldTag);
-  const newRemoteSha = remoteTagSha(newTag);
+  const newRemoteSha = refObject(newTag)?.sha ?? null;
   const oldResolvedSha = oldRemoteSha ? (sourceTagSha(oldTag) || oldRemoteSha) : null;
-  const newResolvedSha = newRemoteSha ? (sourceTagSha(newTag) || newRemoteSha) : null;
+  const newResolvedSha = newRemoteSha ? resolvedRefCommitSha(newTag) : null;
 
   if (oldResolvedSha && oldResolvedSha !== item.sourceSha) {
     throw new Error(`${oldTag} points to ${oldResolvedSha}, expected ${item.sourceSha}`);
@@ -147,7 +199,9 @@ for (const item of mapping) {
   if (verifyOnly) {
     assertRelease(item, release, assetsBefore.length);
     if (oldRemoteSha) throw new Error(`${oldTag}: legacy Git tag still exists`);
-    if (!newRemoteSha) throw new Error(`${newTag}: canonical Git tag missing`);
+    if (!newRemoteSha || newResolvedSha !== item.sourceSha) {
+      throw new Error(`${newTag}: canonical Git tag missing or points at the wrong source`);
+    }
     console.log(`verified ${newTag}`);
     continue;
   }
@@ -166,23 +220,7 @@ for (const item of mapping) {
     });
   }
 
-  // Create the canonical Git ref before retargeting the Release. When the
-  // Release API is asked to move to a nonexistent tag, GitHub may try to create
-  // that tag internally and apply workflow-file push restrictions to historical
-  // commits. Creating the ref directly through Git Data only changes the ref.
-  if (!remoteTagSha(newTag)) {
-    ghJson(`repos/${repo}/git/refs`, {
-      method: "POST",
-      fields: [
-        ["-f", "ref", `refs/tags/${newTag}`],
-        ["-f", "sha", item.sourceSha],
-      ],
-    });
-  }
-  const createdTagSha = remoteTagSha(newTag);
-  if (createdTagSha !== item.sourceSha) {
-    throw new Error(`${newTag}: canonical tag points to ${createdTagSha}, expected ${item.sourceSha}`);
-  }
+  createCanonicalTag(newTag, item.sourceSha, oldTag);
 
   const body = canonicalizeText(release.body || "", item);
   release = ghJson(`repos/${repo}/releases/${release.id}`, {
@@ -233,10 +271,10 @@ for (const item of mapping) {
     }
   }
 
-  if (remoteTagSha(oldTag)) {
+  if (refObject(oldTag)) {
     ghJson(`repos/${repo}/git/refs/tags/${oldTag}`, { method: "DELETE" });
   }
-  if (remoteTagSha(oldTag)) throw new Error(`${oldTag}: legacy tag still exists after deletion`);
+  if (refObject(oldTag)) throw new Error(`${oldTag}: legacy tag still exists after deletion`);
   console.log(`migrated and verified ${oldTag} -> ${newTag}`);
 }
 
