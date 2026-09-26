@@ -1,4 +1,4 @@
-name: Migrate published releases to 0.x
+name: Audit published release migration
 
 on:
   push:
@@ -36,14 +36,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node .github/scripts/migrate-published-releases.mjs
 
-      - name: Apply canonical release migration
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: node .github/scripts/migrate-published-releases.mjs --apply
-
-      - name: Verify published releases and tags
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Report migration authorization boundary
         run: |
-          git fetch --tags --force --prune
-          node .github/scripts/migrate-published-releases.mjs --verify
+          echo "Migration plan is valid."
+          echo "Automatic apply is intentionally disabled because this repository's Actions GitHub App cannot create historical tag refs (HTTP 403)."
+          echo "The idempotent migrator remains available for an administrator-authorized GitHub token:"
+          echo "  node .github/scripts/migrate-published-releases.mjs --apply"
