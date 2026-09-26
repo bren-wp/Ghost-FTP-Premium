@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "node scripts/check-tauri-alignment.mjs && tsc --noEmit && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
     "gen:brand-icons": "node scripts/gen-brand-icons.mjs",
@@ -26,7 +26,7 @@
   "dependencies": {
     "@ghostftp/file-ui": "*",
     "@iconify/react": "^6.0.2",
-    "@tauri-apps/api": "^2.1.1",
+    "@tauri-apps/api": "~2.11.0",
     "@tauri-apps/plugin-dialog": "^2.0.1",
     "@tauri-apps/plugin-fs": "^2.0.3",
     "@tauri-apps/plugin-notification": "^2.3.3",
@@ -49,7 +49,7 @@
     "@iconify-json/mdi": "^1.2.3",
     "@iconify-json/simple-icons": "^1.2.90",
     "@iconify/utils": "^3.1.4",
-    "@tauri-apps/cli": "^2.1.0",
+    "@tauri-apps/cli": "~2.11.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^6.1.1",

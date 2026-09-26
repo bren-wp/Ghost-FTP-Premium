@@ -2,7 +2,9 @@ use anyhow::{Context, Result};
 use russh_keys::key::PublicKey;
 use russh_keys::PublicKeyBase64;
 use std::collections::BTreeSet;
-use std::fs::{File, OpenOptions};
+use std::fs::OpenOptions;
+#[cfg(unix)]
+use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
