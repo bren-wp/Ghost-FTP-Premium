@@ -69,7 +69,11 @@ pub fn append(host: &str, port: u16, key: &PublicKey) -> Result<()> {
     } else {
         format!("[{host}]:{port}")
     };
-    let line = format!("{host_field} {} {}\n", key.algorithm().as_str(), key.public_key_base64());
+    let line = format!(
+        "{host_field} {} {}\n",
+        key.algorithm().as_str(),
+        key.public_key_base64()
+    );
 
     let mut options = OpenOptions::new();
     options.create(true).append(true);
@@ -120,7 +124,11 @@ pub fn replace(host: &str, port: u16, key: &PublicKey) -> Result<()> {
     } else {
         format!("[{host}]:{port}")
     };
-    let replacement = format!("{host_field} {} {}\n", key.algorithm().as_str(), key.public_key_base64());
+    let replacement = format!(
+        "{host_field} {} {}\n",
+        key.algorithm().as_str(),
+        key.public_key_base64()
+    );
     let rewritten = rewrite_matching_lines(&contents, &matching_lines, &replacement)
         .context("matching known_hosts entry disappeared during replacement")?;
 

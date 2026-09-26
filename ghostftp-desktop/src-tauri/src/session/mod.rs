@@ -28,9 +28,7 @@ use crate::known_hosts;
 use crate::profiles::{AuthMethod, ConnectionProfile};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
-use russh::keys::{
-    agent::AgentIdentity, Algorithm, PrivateKeyWithHashAlg, PublicKeyOrCertificate,
-};
+use russh::keys::{agent::AgentIdentity, Algorithm, PrivateKeyWithHashAlg, PublicKeyOrCertificate};
 use russh::{client, Channel, ChannelMsg};
 use russh_sftp::client::SftpSession;
 use serde::Serialize;
