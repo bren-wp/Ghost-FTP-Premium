@@ -376,85 +376,85 @@ impl client::Handler for ClientHandler {
         &mut self,
         server_public_key: &PublicKeyOrCertificate,
     ) -> Result<bool, Self::Error> {
-            // russh 0.63 surfaces host certificates separately from bare host keys.
-            // Ghost FTP currently implements strict known_hosts trust, not SSH CA
-            // trust, so accepting a certificate by stripping it to its embedded
-            // key would silently weaken the trust model. Refuse until a CA trust
-            // store and certificate validation policy are explicitly implemented.
-            let server_public_key = match server_public_key {
-                PublicKeyOrCertificate::PublicKey { key, .. } => key,
-                PublicKeyOrCertificate::Certificate(_) => {
-                    tracing::warn!(
-                        host = %self.host,
-                        port = self.port,
-                        "SSH host certificate rejected because no trusted host CA is configured"
-                    );
-                    return Ok(false);
-                }
-            };
+        // russh 0.63 surfaces host certificates separately from bare host keys.
+        // Ghost FTP currently implements strict known_hosts trust, not SSH CA
+        // trust, so accepting a certificate by stripping it to its embedded
+        // key would silently weaken the trust model. Refuse until a CA trust
+        // store and certificate validation policy are explicitly implemented.
+        let server_public_key = match server_public_key {
+            PublicKeyOrCertificate::PublicKey { key, .. } => key,
+            PublicKeyOrCertificate::Certificate(_) => {
+                tracing::warn!(
+                    host = %self.host,
+                    port = self.port,
+                    "SSH host certificate rejected because no trusted host CA is configured"
+                );
+                return Ok(false);
+            }
+        };
 
-            let status = match known_hosts::check(&self.host, self.port, server_public_key) {
-                Ok(status) => status,
-                Err(error) => {
+        let status = match known_hosts::check(&self.host, self.port, server_public_key) {
+            Ok(status) => status,
+            Err(error) => {
+                tracing::warn!(
+                    ?error,
+                    host = %self.host,
+                    port = self.port,
+                    "failed to verify SSH host key from known_hosts"
+                );
+                return Ok(false);
+            }
+        };
+        let fingerprint = known_hosts::fingerprint(server_public_key);
+        let key_type = server_public_key.algorithm().as_str().to_string();
+
+        let (kind, stored) = match status {
+            known_hosts::HostKeyStatus::Match => return Ok(true),
+            known_hosts::HostKeyStatus::Unknown => (HostPromptKind::Unknown, None),
+            known_hosts::HostKeyStatus::Mismatch { stored_fingerprint } => {
+                (HostPromptKind::Mismatch, Some(stored_fingerprint))
+            }
+        };
+
+        let decision = self
+            .verifier
+            .decide(
+                &self.host,
+                self.port,
+                &key_type,
+                &fingerprint,
+                stored.as_deref(),
+                kind,
+            )
+            .await?;
+
+        match decision {
+            HostDecision::Accept => Ok(true),
+            HostDecision::Trust => {
+                let persist = match kind {
+                    HostPromptKind::Unknown => {
+                        known_hosts::append(&self.host, self.port, server_public_key)
+                    }
+                    HostPromptKind::Mismatch => {
+                        known_hosts::replace(&self.host, self.port, server_public_key)
+                    }
+                };
+                if let Err(error) = persist {
                     tracing::warn!(
                         ?error,
                         host = %self.host,
                         port = self.port,
-                        "failed to verify SSH host key from known_hosts"
+                        "failed to persist trusted SSH host key"
                     );
+                    // "Accept" is the explicit session-only choice. If the user
+                    // chose "Trust", fail closed instead of silently downgrading
+                    // persistence semantics.
                     return Ok(false);
                 }
-            };
-            let fingerprint = known_hosts::fingerprint(server_public_key);
-            let key_type = server_public_key.algorithm().as_str().to_string();
-
-            let (kind, stored) = match status {
-                known_hosts::HostKeyStatus::Match => return Ok(true),
-                known_hosts::HostKeyStatus::Unknown => (HostPromptKind::Unknown, None),
-                known_hosts::HostKeyStatus::Mismatch { stored_fingerprint } => {
-                    (HostPromptKind::Mismatch, Some(stored_fingerprint))
-                }
-            };
-
-            let decision = self
-                .verifier
-                .decide(
-                    &self.host,
-                    self.port,
-                    &key_type,
-                    &fingerprint,
-                    stored.as_deref(),
-                    kind,
-                )
-                .await?;
-
-            match decision {
-                HostDecision::Accept => Ok(true),
-                HostDecision::Trust => {
-                    let persist = match kind {
-                        HostPromptKind::Unknown => {
-                            known_hosts::append(&self.host, self.port, server_public_key)
-                        }
-                        HostPromptKind::Mismatch => {
-                            known_hosts::replace(&self.host, self.port, server_public_key)
-                        }
-                    };
-                    if let Err(error) = persist {
-                        tracing::warn!(
-                            ?error,
-                            host = %self.host,
-                            port = self.port,
-                            "failed to persist trusted SSH host key"
-                        );
-                        // "Accept" is the explicit session-only choice. If the user
-                        // chose "Trust", fail closed instead of silently downgrading
-                        // persistence semantics.
-                        return Ok(false);
-                    }
-                    Ok(true)
-                }
-                HostDecision::Reject => Ok(false),
+                Ok(true)
             }
+            HostDecision::Reject => Ok(false),
+        }
     }
 }
 
