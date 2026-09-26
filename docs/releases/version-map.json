@@ -1,5 +1,5 @@
 {
-  "policy": "Canonical pre-1.0 semantic version history. Canonical historical versions are assigned only to GitHub releases that were actually published. Each mapping preserves the actual Git tag commit SHA; legacy release target_commitish metadata is not treated as authoritative. The next unreleased development line is 0.15.0; hotfixes use the patch component.",
+  "policy": "Canonical pre-1.0 semantic version history. Canonical historical versions are assigned only to GitHub releases that were actually published. Each mapping preserves the actual Git tag commit SHA; legacy release target_commitish metadata is not treated as authoritative. The current development line is 0.16.0; hotfixes use the patch component. Historical RC-to-0.x mutation remains audit-only until an administrator-authorized GitHub identity can create historical tag refs.",
   "versions": [
     {
       "canonical": "0.1.0",
