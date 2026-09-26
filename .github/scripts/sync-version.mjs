@@ -19,7 +19,8 @@ const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
 const apply = (rel, next) => {
   const file = path.join(root, rel);
   const current = fs.readFileSync(file, "utf8");
-  if (current === next) return;
+  const normalize = (value) => value.replace(/\r\n/g, "\n");
+  if (normalize(current) === normalize(next)) return;
   if (checkOnly) drift.push(rel);
   else { fs.writeFileSync(file, next); console.log(`updated ${rel}`); }
 };

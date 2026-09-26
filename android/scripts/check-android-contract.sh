@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ANDROID_DIR="$ROOT/android"
 APP_DIR="$ANDROID_DIR/app/src/main"
+VERSION="$(node -p 'require("./version.json").version')"
+BUILD="$(node -p 'require("./version.json").build')"
 
 require_text() {
   local label="$1"
@@ -31,10 +33,10 @@ RELEASE_INFO="$ANDROID_DIR/app/src/main/java/com/ghostftp/android/ReleaseInfo.kt
 
 require_text "product name" "$RELEASE_INFO" 'PRODUCT_NAME = "Ghost FTP"'
 require_text "brand" "$RELEASE_INFO" 'BRAND = "Brendigo"'
-require_text "version" "$RELEASE_INFO" 'VERSION = "2.1.1-rc.23"'
-require_text "display version" "$RELEASE_INFO" 'VERSION_DISPLAY = "2.1.1 RC23"'
-require_text "badge" "$RELEASE_INFO" 'VERSION_BADGE = "RC23"'
-require_text "build" "$RELEASE_INFO" 'BUILD = "2026.09.25.23"'
+require_text "version" "$RELEASE_INFO" "VERSION = \"$VERSION\""
+require_text "display version" "$RELEASE_INFO" "VERSION_DISPLAY = \"$VERSION\""
+require_text "badge" "$RELEASE_INFO" "VERSION_BADGE = \"$VERSION\""
+require_text "build" "$RELEASE_INFO" "BUILD = \"$BUILD\""
 require_text "app label" "$ANDROID_DIR/app/src/main/res/values/strings.xml" '<string name="app_name">Ghost FTP</string>'
 
 require_text "ftp protocol" "$CONNECTION_MODEL" 'FTP("FTP", 21)'
@@ -145,4 +147,4 @@ for pattern in "${blocked_patterns[@]}"; do
   require_absent "product copy" "$APP_DIR" "$pattern"
 done
 
-echo "Ghost FTP Android RC23 production contract OK"
+echo "Ghost FTP Android $VERSION production contract OK"

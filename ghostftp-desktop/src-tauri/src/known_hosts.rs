@@ -225,6 +225,23 @@ fn replace_file_with_rollback(
     Ok(())
 }
 
+/// Compute the SHA-256 fingerprint of a public key in OpenSSH form:
+/// `SHA256:<base64-no-padding>`.
+pub fn fingerprint(key: &PublicKey) -> String {
+    use sha2::{Digest, Sha256};
+    let blob = key.public_key_bytes();
+    let mut hasher = Sha256::new();
+    hasher.update(&blob);
+    let digest = hasher.finalize();
+    let b64 = base64_no_pad(&digest);
+    format!("SHA256:{b64}")
+}
+
+fn base64_no_pad(bytes: &[u8]) -> String {
+    use base64::Engine;
+    base64::engine::general_purpose::STANDARD_NO_PAD.encode(bytes)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -246,21 +263,4 @@ mod tests {
         let matching = BTreeSet::from([4usize]);
         assert!(rewrite_matching_lines("one\ntwo\n", &matching, "new\n").is_none());
     }
-}
-
-/// Compute the SHA-256 fingerprint of a public key in OpenSSH form:
-/// `SHA256:<base64-no-padding>`.
-pub fn fingerprint(key: &PublicKey) -> String {
-    use sha2::{Digest, Sha256};
-    let blob = key.public_key_bytes();
-    let mut hasher = Sha256::new();
-    hasher.update(&blob);
-    let digest = hasher.finalize();
-    let b64 = base64_no_pad(&digest);
-    format!("SHA256:{b64}")
-}
-
-fn base64_no_pad(bytes: &[u8]) -> String {
-    use base64::Engine;
-    base64::engine::general_purpose::STANDARD_NO_PAD.encode(bytes)
 }
