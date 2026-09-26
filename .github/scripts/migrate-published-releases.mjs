@@ -54,7 +54,8 @@ function replaceAllLiteral(text, from, to) {
   return text.split(from).join(to);
 }
 
-function canonicalizeText(text, item) {
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^$\{\}()|[\]\\]/g, "\\function canonicalizeText(text, item) {
   const rc = item.legacy.match(/-rc\.(\d+)$/i)?.[1];
   if (!rc) throw new Error(`invalid legacy version ${item.legacy}`);
   const assetVersion = item.legacy.replace(/-rc\.(\d+)$/i, "-RC$1");
@@ -69,6 +70,27 @@ function canonicalizeText(text, item) {
   ];
   let out = String(text ?? "");
   for (const [from, to] of variants) out = replaceAllLiteral(out, from, to);
+  return out;
+}");
+}
+
+function canonicalizeText(text, item) {
+  const rc = item.legacy.match(/-rc\.(\d+)$/i)?.[1];
+  if (!rc) throw new Error(`invalid legacy version ${item.legacy}`);
+  const base = item.legacy.replace(/-rc\.\d+$/i, "");
+  let out = String(text ?? "");
+
+  // Cover every historical spelling used by old release assets:
+  // 2.1.1-rc.8, 2.1.1-RC8, 2.1.1-rc8, 2.1.1.rc8, and v-prefixed forms.
+  out = out.replace(
+    new RegExp(`v${escapeRegex(base)}(?:[-_. ]?rc[.-]?${rc})`, "gi"),
+    `v${item.canonical}`,
+  );
+  out = out.replace(
+    new RegExp(`${escapeRegex(base)}(?:[-_. ]?rc[.-]?${rc})`, "gi"),
+    item.canonical,
+  );
+  out = out.replace(new RegExp(`\\bRC[.-]?${rc}\\b`, "gi"), item.canonical);
   return out;
 }
 
@@ -153,11 +175,6 @@ for (const item of mapping) {
   console.log(`${apply ? "migrating" : "would migrate"} ${oldTag} -> ${newTag} at ${item.sourceSha}`);
   if (!apply) continue;
 
-  if (!newRemoteSha) {
-    run("git", ["tag", newTag, item.sourceSha]);
-    run("git", ["push", "origin", `refs/tags/${newTag}`]);
-  }
-
   // Download checksum assets before changing the release so their contents can
   // be rewritten to the canonical asset names without touching binary assets.
   const checksumBackups = [];
@@ -174,12 +191,29 @@ for (const item of mapping) {
     method: "PATCH",
     fields: [
       ["-f", "tag_name", newTag],
+      ["-f", "target_commitish", item.sourceSha],
       ["-f", "name", `Ghost FTP ${item.canonical}`],
       ["-f", "body", body],
       ["-F", "prerelease", "false"],
       ["-F", "draft", "false"],
     ],
   });
+
+  // Updating a release to a new tag normally creates that tag. If GitHub
+  // leaves the tag absent, create the ref through the REST API rather than
+  // git push, which is blocked for historical commits containing workflows.
+  if (!remoteTagSha(newTag)) {
+    ghJson(`repos/${repo}/git/refs`, {
+      method: "POST",
+      fields: [
+        ["-f", "ref", `refs/tags/${newTag}`],
+        ["-f", "sha", item.sourceSha],
+      ],
+    });
+  }
+  if (remoteTagSha(newTag) !== item.sourceSha) {
+    throw new Error(`${newTag}: canonical tag was not created at ${item.sourceSha}`);
+  }
 
   // Rename binary assets in place so their bytes and GitHub digest remain
   // unchanged. Checksums are re-uploaded because their filename references
@@ -218,8 +252,9 @@ for (const item of mapping) {
   }
 
   if (remoteTagSha(oldTag)) {
-    run("git", ["push", "origin", `:refs/tags/${oldTag}`]);
+    ghJson(`repos/${repo}/git/refs/tags/${oldTag}`, { method: "DELETE" });
   }
+  if (remoteTagSha(oldTag)) throw new Error(`${oldTag}: legacy tag still exists after deletion`);
   console.log(`migrated and verified ${oldTag} -> ${newTag}`);
 }
 
