@@ -1,7 +1,7 @@
 {
-  "version": "0.18.0",
-  "previousVersion": "0.17.0",
-  "build": "2026.09.26.18",
+  "version": "0.15.0",
+  "previousVersion": "0.14.0",
+  "build": "2026.09.26.15",
   "releaseDate": "26 September 2026",
   "androidVersionCode": 211024,
   "channel": "preview",
