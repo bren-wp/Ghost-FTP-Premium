@@ -1,9 +1,7 @@
-name: Ghost FTP RC14 release
+name: Legacy Ghost FTP RC14 release (manual only)
 
 on:
-  workflow_run:
-    workflows: ["Ghost FTP native build"]
-    types: [completed]
+  workflow_dispatch:
 
 permissions:
   contents: write

@@ -1,4 +1,4 @@
-name: Validate Windows RC23 hardening
+name: Validate Windows hardening
 
 on:
   push:
