@@ -43,9 +43,13 @@ jobs:
       - name: Rust formatting
         working-directory: ghostftp-desktop/src-tauri
         run: cargo fmt --all -- --check
-      - name: Resolve Rust dependency graph
+      - name: Verify committed Rust dependency graph
         working-directory: ghostftp-desktop/src-tauri
-        run: cargo generate-lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s Cargo.lock
+          cargo metadata --locked --format-version 1 >/dev/null
       - name: Rust tests
         working-directory: ghostftp-desktop/src-tauri
         shell: bash

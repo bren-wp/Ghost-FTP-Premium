@@ -65,6 +65,14 @@ jobs:
       - name: TypeScript/frontend build
         working-directory: ghostftp-desktop
         run: npm run build
+      - name: Verify committed Rust dependency graph
+        working-directory: ghostftp-desktop/src-tauri
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s Cargo.lock
+          cargo metadata --locked --format-version 1 >/dev/null
+
       - name: Build Ghost FTP desktop bundle
         uses: tauri-apps/tauri-action@v0
         env:
