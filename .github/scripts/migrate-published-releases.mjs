@@ -54,8 +54,7 @@ function replaceAllLiteral(text, from, to) {
   return text.split(from).join(to);
 }
 
-function escapeRegex(value) {
-  return String(value).replace(/[.*+?^$\{\}()|[\]\\]/g, "\\function canonicalizeText(text, item) {
+function canonicalizeText(text, item) {
   const rc = item.legacy.match(/-rc\.(\d+)$/i)?.[1];
   if (!rc) throw new Error(`invalid legacy version ${item.legacy}`);
   const assetVersion = item.legacy.replace(/-rc\.(\d+)$/i, "-RC$1");
@@ -78,16 +77,17 @@ function canonicalizeText(text, item) {
   const rc = item.legacy.match(/-rc\.(\d+)$/i)?.[1];
   if (!rc) throw new Error(`invalid legacy version ${item.legacy}`);
   const base = item.legacy.replace(/-rc\.\d+$/i, "");
+  const basePattern = base.replace(/\./g, "\\\\.");
   let out = String(text ?? "");
 
   // Cover every historical spelling used by old release assets:
   // 2.1.1-rc.8, 2.1.1-RC8, 2.1.1-rc8, 2.1.1.rc8, and v-prefixed forms.
   out = out.replace(
-    new RegExp(`v${escapeRegex(base)}(?:[-_. ]?rc[.-]?${rc})`, "gi"),
+    new RegExp(`v${basePattern}(?:[-_. ]?rc[.-]?${rc})`, "gi"),
     `v${item.canonical}`,
   );
   out = out.replace(
-    new RegExp(`${escapeRegex(base)}(?:[-_. ]?rc[.-]?${rc})`, "gi"),
+    new RegExp(`${basePattern}(?:[-_. ]?rc[.-]?${rc})`, "gi"),
     item.canonical,
   );
   out = out.replace(new RegExp(`\\bRC[.-]?${rc}\\b`, "gi"), item.canonical);

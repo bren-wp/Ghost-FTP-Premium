@@ -28,6 +28,9 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Validate migration script syntax
+        run: node --check .github/scripts/migrate-published-releases.mjs
+
       - name: Validate migration plan
         env:
           GH_TOKEN: ${{ github.token }}
