@@ -50,34 +50,11 @@ function sourceTagSha(tag) {
   return result.status === 0 ? String(result.stdout).trim() : null;
 }
 
-function replaceAllLiteral(text, from, to) {
-  return text.split(from).join(to);
-}
-
-function canonicalizeText(text, item) {
-  const rc = item.legacy.match(/-rc\.(\d+)$/i)?.[1];
-  if (!rc) throw new Error(`invalid legacy version ${item.legacy}`);
-  const assetVersion = item.legacy.replace(/-rc\.(\d+)$/i, "-RC$1");
-  const variants = [
-    [`v${assetVersion}`, `v${item.canonical}`],
-    [`v${item.legacy}`, `v${item.canonical}`],
-    [assetVersion, item.canonical],
-    [item.legacyDisplay, item.canonical],
-    [item.legacy, item.canonical],
-    [`RC${rc}`, item.canonical],
-    [`rc.${rc}`, item.canonical],
-  ];
-  let out = String(text ?? "");
-  for (const [from, to] of variants) out = replaceAllLiteral(out, from, to);
-  return out;
-}");
-}
-
 function canonicalizeText(text, item) {
   const rc = item.legacy.match(/-rc\.(\d+)$/i)?.[1];
   if (!rc) throw new Error(`invalid legacy version ${item.legacy}`);
   const base = item.legacy.replace(/-rc\.\d+$/i, "");
-  const basePattern = base.replace(/\./g, "\\\\.");
+  const basePattern = base.replace(/\./g, "\\.");
   let out = String(text ?? "");
 
   // Cover every historical spelling used by old release assets:
@@ -90,7 +67,10 @@ function canonicalizeText(text, item) {
     new RegExp(`${basePattern}(?:[-_. ]?rc[.-]?${rc})`, "gi"),
     item.canonical,
   );
-  out = out.replace(new RegExp(`\\bRC[.-]?${rc}\\b`, "gi"), item.canonical);
+  out = out.replace(
+    new RegExp(`\\bRC[.-]?${rc}\\b`, "gi"),
+    item.canonical,
+  );
   return out;
 }
 
