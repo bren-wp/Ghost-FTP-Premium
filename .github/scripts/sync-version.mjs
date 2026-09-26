@@ -95,8 +95,16 @@ const websitePages = [
 ];
 for (const rel of websitePages) {
   let text = read(rel);
-  for (const old of [previousVersion, legacyVersion, legacyDisplay]) if (old) text = text.split(old).join(version);
-  text = text.replace(/Ghost FTP \d+\.\d+\.\d+(?: RC\d+)?/g, `Ghost FTP ${version}`).replace(/\bRC23\b/g, version);
+  for (const old of [previousVersion, legacyVersion, legacyDisplay]) {
+    if (old) text = text.split(old).join(version);
+  }
+  // Public pages describe the currently distributed Ghost FTP build.
+  // Normalize any stale product SemVer/legacy RC label so version.json stays
+  // the single source of truth even when a page skipped an intermediate bump.
+  text = text
+    .replace(/Ghost FTP \d+\.\d+\.\d+(?:-rc\.\d+| RC\d+)?/g, `Ghost FTP ${version}`)
+    .replace(/\b\d+\.\d+\.\d+(?:-rc\.\d+)?\b/g, version)
+    .replace(/\bRC\d+\b/g, version);
   apply(rel, text);
 }
 
