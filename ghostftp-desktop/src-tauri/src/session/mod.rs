@@ -369,14 +369,14 @@ pub struct ClientHandler {
     verifier: Arc<dyn HostKeyVerifier>,
 }
 
-#[async_trait]
 impl client::Handler for ClientHandler {
     type Error = russh::Error;
 
-    async fn check_server_key(
+    fn check_server_key(
         &mut self,
         server_public_key: &PublicKeyOrCertificate,
-    ) -> Result<bool, Self::Error> {
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        async move {
         // russh 0.63 surfaces host certificates separately from bare host keys.
         // Ghost FTP currently implements strict known_hosts trust, not SSH CA
         // trust, so accepting a certificate by stripping it to its embedded
@@ -455,6 +455,7 @@ impl client::Handler for ClientHandler {
                 Ok(true)
             }
             HostDecision::Reject => Ok(false),
+        }
         }
     }
 }
