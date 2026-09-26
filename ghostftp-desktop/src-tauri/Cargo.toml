@@ -21,7 +21,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "=2.6.3", features = [] }
 
 [dependencies]
-tauri = { version = "=2.11.5", features = [] }
+tauri = { version = "=2.11.4", features = [] }
 # Native file/folder picker for the Upload button + download-folder chooser.
 tauri-plugin-dialog = "2"
 # ghostftp:// deep links (one-click "open in Ghost FTP" from a hosting panel like

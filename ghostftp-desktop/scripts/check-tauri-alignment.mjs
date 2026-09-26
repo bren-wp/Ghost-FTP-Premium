@@ -41,8 +41,8 @@ for (const [label, spec] of [["@tauri-apps/api", apiSpec], ["@tauri-apps/cli", c
     throw new Error(`${label} must stay on the ~${expected}.x train; found ${spec}`);
   }
 }
-if (rustReq !== "=2.11.5") {
-  throw new Error(`Rust tauri must stay pinned to the last verified core patch (=2.11.5); found ${rustReq}`);
+if (rustReq !== "=2.11.4") {
+  throw new Error(`Rust tauri must stay pinned to the last verified coherent core patch (=2.11.4); found ${rustReq}`);
 }
 
 console.log(`Tauri alignment OK: Rust ${rustReq}, API ${apiResolved}, CLI ${cliResolved}`);
