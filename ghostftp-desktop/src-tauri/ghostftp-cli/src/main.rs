@@ -3388,4 +3388,3 @@ fn fmt_bytes(n: u64) -> String {
         format!("{:.2} GB", n as f64 / (1024.0 * 1024.0 * 1024.0))
     }
 }
-
