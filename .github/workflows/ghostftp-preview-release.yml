@@ -55,6 +55,24 @@ jobs:
           wait_for_gate "ghostftp-protocol-e2e.yml" "FTP/FTPS/SFTP E2E"
           wait_for_gate "ghostftp-android.yml" "Android"
           wait_for_gate "validate-win-hardening.yml" "Windows hardening"
+
+          PREVIOUS_VERSION="$(node -p 'require("./version.json").previousVersion || ""')"
+          if [ -n "$PREVIOUS_VERSION" ]; then
+            echo "Waiting for previous canonical release v$PREVIOUS_VERSION before publishing v$VERSION"
+            found_previous=false
+            for attempt in $(seq 1 90); do
+              if gh release view "v$PREVIOUS_VERSION" >/dev/null 2>&1; then
+                found_previous=true
+                break
+              fi
+              sleep 20
+            done
+            if [ "$found_previous" != "true" ]; then
+              echo "Previous release v$PREVIOUS_VERSION was not published in time." >&2
+              exit 1
+            fi
+          fi
+
           echo "SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
